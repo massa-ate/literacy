@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>タイマー時計</title>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background: #1a1a1a;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background: #2a2a2a;
+            padding: 30px 40px;
+            border-radius: 15px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            text-align: center;
+            width: 320px;
+        }
+        h1 {
+            font-size: 1.2rem;
+            color: #888;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        .display {
+            font-size: 3rem;
+            font-weight: bold;
+            font-family: monospace;
+            margin-bottom: 20px;
+            color: #00ffcc;
+            text-shadow: 0 0 10px rgba(0,255,204,0.3);
+        }
+        .mode-selector {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #444;
+            padding-bottom: 10px;
+        }
+        .mode-btn {
+            background: none;
+            border: none;
+            color: #888;
+            font-size: 0.9rem;
+            cursor: pointer;
+            padding: 5px 10px;
+            transition: 0.3s;
+        }
+        .mode-btn.active {
+            color: #00ffcc;
+            font-weight: bold;
+            border-bottom: 2px solid #00ffcc;
+        }
+        .controls, .inputs {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+        .btn {
+            background: #444;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: 0.2s;
+        }
+        .btn:hover {
+            background: #555;
+        }
+        .btn-primary {
+            background: #00ffcc;
+            color: #1a1a1a;
+            font-weight: bold;
+        }
+        .btn-primary:hover {
+            background: #00ccb3;
+        }
+        .hidden {
+            display: none !important;
+        }
+        .timer-inputs {
+            margin-bottom: 15px;
+        }
+        .timer-inputs input {
+            width: 50px;
+            padding: 5px;
+            font-size: 1.2rem;
+            text-align: center;
+            background: #333;
+            border: 1px solid #555;
+            color: white;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="mode-selector">
+        <button class="mode-btn active" onclick="switchMode('clock')">現在時刻</button>
+        <button class="mode-btn" onclick="switchMode('timer')">タイマー</button>
+        <button class="mode-btn" onclick="switchMode('stopwatch')">ストップウォッチ</button>
+    </div>
+
+    <!-- 現在時刻モード -->
+    <div id="mode-clock" class="mode-section">
+        <h1>Current Time</h1>
+        <div id="clock-display" class="display">00:00:00</div>
+    </div>
+
+    <!-- タイマーモード -->
+    <div id="mode-timer" class="mode-section hidden">
+        <h1>Countdown Timer</h1>
+        <div id="timer-inputs" class="timer-inputs">
+            <input type="number" id="minutes" value="3" min="0" max="99"> 分
+            <input type="number" id="seconds" value="0" min="0" max="59"> 秒
+        </div>
+        <div id="timer-display" class="display">03:00</div>
+        <div class="controls">
+            <button id="timer-start-btn" class="btn btn-primary" onclick="startTimer()">スタート</button>
+            <button class="btn" onclick="resetTimer()">リセット</button>
+        </div>
+    </div>
+
+    <!-- ストップウォッチモード -->
+    <div id="mode-stopwatch" class="mode-section hidden">
+        <h1>Stopwatch</h1>
+        <div id="sw-display" class="display">00:00.00</div>
+        <div class="controls">
+            <button id="sw-start-btn" class="btn btn-primary" onclick="startStopwatch()">スタート</button>
+            <button class="btn" onclick="resetStopwatch()">リセット</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // モード切り替え
+    function switchMode(mode) {
+        document.querySelectorAll('.mode-section').forEach(el => el.classList.add('hidden'));
+        document.querySelectorAll('.mode-btn').forEach(el => el.classList.remove('active'));
+
+        document.getElementById(`mode-${mode}`).classList.remove('hidden');
+        event.target.classList.add('active');
+        
+        // 動作中のタイマーなどをリセットせずに保持するため処理は分ける
+    }
+
+    // 1. 現在時刻機能
+    function updateClock() {
+        const now = new Date();
+        const h = String(now.getHours()).padStart(2, '0');
+        const m = String(now.getMinutes()).padStart(2, '0');
+        const s = String(now.getSeconds()).padStart(2, '0');
+        document.getElementById('clock-display').textContent = `${h}:${m}:${s}`;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // 2. タイマー機能
+    let timerInterval = null;
+    let totalSeconds = 0;
+
+    function startTimer() {
+        const startBtn = document.getElementById('timer-start-btn');
+        
+        if (timerInterval) {
+            // 一時停止
+            clearInterval(timerInterval);
+            timerInterval = null;
+            startBtn.textContent = "スタート";
+            startBtn.classList.add('btn-primary');
+            document.getElementById('timer-inputs').style.display = 'block';
+            return;
+        }
+
+        // 開始時
+        if (totalSeconds === 0) {
+            const mins = parseInt(document.getElementById('minutes').value) || 0;
+            const secs = parseInt(document.getElementById('seconds').value) || 0;
+            totalSeconds = mins * 60 + secs;
+            if (totalSeconds <= 0) return;
+        }
+
+        document.getElementById('timer-inputs').style.display = 'none';
+        startBtn.textContent = "一時停止";
+        startBtn.classList.remove('btn-primary');
+
+        timerInterval = setInterval(() => {
+            if (totalSeconds > 0) {
+                totalSeconds--;
+                updateTimerDisplay();
+            } else {
+                clearInterval(timerInterval);
+                timerInterval = null;
+                alert("時間になりました！");
+                resetTimer();
+            }
+        }, 1000);
+    }
+
+    function updateTimerDisplay() {
+        const m = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
+        const s = String(totalSeconds % 60).padStart(2, '0');
+        document.getElementById('timer-display').textContent = `${m}:${s}`;
+    }
+
+    function resetTimer() {
+        clearInterval(timerInterval);
+        timerInterval = null;
+        totalSeconds = 0;
+        document.getElementById('timer-inputs').style.display = 'block';
+        document.getElementById('timer
